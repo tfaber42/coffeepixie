@@ -1,0 +1,10 @@
+nespresso_machine:
+  espresso_button_pin: 27
+  lungo_button_pin: 22
+  button_press_duration_ms: 300
+timer:
+  armed_led_pin: 17
+  disarmed_led_pin: 4
+  arm_button_pin: 24
+  check_status_button_pin: 23
+  trigger_time: "8:30"
