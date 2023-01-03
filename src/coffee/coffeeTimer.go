@@ -3,11 +3,29 @@ package coffee
 import (
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"periph.io/x/conn/v3/gpio"
 	"periph.io/x/conn/v3/gpio/gpioreg"
 )
+
+type CoffeeTimerConfig struct {
+	ArmedLedPin          int    `yaml:"armed_led_pin"`
+	DisarmedLedPin       int    `yaml:"disarmed_led_pin"`
+	ArmButtonPin         int    `yaml:"arm_button_pin"`
+	CheckStatusButtonPin int    `yaml:"check_status_button_pin"`
+	TriggerTime          string `yaml:"trigger_time"`
+}
+
+var CoffeeTimerConfigDefaults = CoffeeTimerConfig{
+	ArmedLedPin:          17,
+	DisarmedLedPin:       4,
+	ArmButtonPin:         24,
+	CheckStatusButtonPin: 23,
+	TriggerTime:          "8:30",
+}
 
 type coffeeTimer struct {
 	armedLedGpio, disarmedLedGpio, armButtonGpio, checkStatusButtonGpio gpio.PinIO
@@ -18,12 +36,12 @@ type coffeeTimer struct {
 	cancellableTimer                                                    *time.Timer
 }
 
-func NewCoffeeTimer(armedLedPin, disarmedLedPin, armButtonPin, checkStatusButtonPin int) *coffeeTimer {
+func NewCoffeeTimer(cfg CoffeeTimerConfig) *coffeeTimer {
 
-	armedLedGpio := gpioreg.ByName(fmt.Sprint(armedLedPin))
-	disarmedLedGpio := gpioreg.ByName(fmt.Sprint(disarmedLedPin))
-	armButtonGpio := gpioreg.ByName(fmt.Sprint(armButtonPin))
-	checkStatusButtonGpio := gpioreg.ByName(fmt.Sprint(checkStatusButtonPin))
+	armedLedGpio := gpioreg.ByName(fmt.Sprint(cfg.ArmedLedPin))
+	disarmedLedGpio := gpioreg.ByName(fmt.Sprint(cfg.DisarmedLedPin))
+	armButtonGpio := gpioreg.ByName(fmt.Sprint(cfg.ArmButtonPin))
+	checkStatusButtonGpio := gpioreg.ByName(fmt.Sprint(cfg.CheckStatusButtonPin))
 
 	showStatusLengthMs := 2000
 	buttonPressLengthMs := 300
@@ -44,7 +62,7 @@ func NewCoffeeTimer(armedLedPin, disarmedLedPin, armButtonPin, checkStatusButton
 
 	ct := coffeeTimer{armedLedGpio: armedLedGpio, disarmedLedGpio: disarmedLedGpio, armButtonGpio: armButtonGpio, checkStatusButtonGpio: checkStatusButtonGpio, showStatusLengthMs: showStatusLengthMs, buttonPressLengthMs: buttonPressLengthMs, isArmed: false}
 
-	ct.SetTriggerTime(8, 30)
+	ct.SetTriggerTime(cfg.TriggerTime)
 	ct.SetTriggerFunc(func() {})
 
 	go func() {
@@ -154,12 +172,34 @@ func (ct coffeeTimer) IsArmed() bool {
 }
 
 // sets the trigger for the next occurrence of HH:MM, usually tomorrow morning - DAYLIGHT SAVINGS BEHAVIOUR UNKNOWN!
-func (ct *coffeeTimer) SetTriggerTime(hour, min int) {
+func (ct *coffeeTimer) SetTriggerTime(timeStr string) {
+
+	var hour, min int
+	var err error
+	fields := strings.Split(timeStr, ":")
+	if len(fields) != 2 {
+		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm'\n", timeStr)
+		log.Printf("Leaving trigger time unchanged at %d:%02d\n", ct.triggerHour, ct.triggerMin)
+		return
+	}
+
+	hour, err = strconv.Atoi(fields[0])
+	if err != nil {
+		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm'\n", timeStr)
+		log.Printf("Leaving trigger time unchanged at %d:%02d\n", ct.triggerHour, ct.triggerMin)
+		return
+	}
+
+	min, err = strconv.Atoi(fields[1])
+	if err != nil {
+		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm'\n", timeStr)
+		log.Printf("Leaving trigger time unchanged at %d:%02d\n", ct.triggerHour, ct.triggerMin)
+		return
+	}
 
 	log.Printf("Setting trigger time to %d:%02d\n", hour, min)
 	ct.triggerHour = hour
 	ct.triggerMin = min
-	log.Printf("Set trigger time to %d:%02d\n", ct.triggerHour, ct.triggerMin)
 
 }
 

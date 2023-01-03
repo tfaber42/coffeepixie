@@ -9,20 +9,32 @@ import (
 	"periph.io/x/conn/v3/gpio/gpioreg"
 )
 
+type NespressoMachineConfig struct {
+	EspressoButtonPin     int `yaml:"espresso_button_pin"`
+	LungoButtonPin        int `yaml:"lungo_button_pin"`
+	ButtonPressDurationMs int `yaml:"button_press_duration_ms"`
+}
+
+var NespressoMachineConfigDefaults = NespressoMachineConfig{
+	EspressoButtonPin:     27,
+	LungoButtonPin:        22,
+	ButtonPressDurationMs: 300,
+}
+
 type nespressoMachine struct {
 	espressoButtonGpio, lungoButtonGpio gpio.PinIO
 	buttonPressLengthMs                 int
 }
 
-func NewNespressoMachine(espressoPin, lungoPin int) nespressoMachine {
+func NewNespressoMachine(cfg NespressoMachineConfig) nespressoMachine {
 
-	espressoButtonGpio := gpioreg.ByName(fmt.Sprint(espressoPin))
-	lungoButtonGpio := gpioreg.ByName(fmt.Sprint(lungoPin))
+	espressoButtonGpio := gpioreg.ByName(fmt.Sprint(cfg.EspressoButtonPin))
+	lungoButtonGpio := gpioreg.ByName(fmt.Sprint(cfg.LungoButtonPin))
 
 	log.Printf("Espresso button GPIO %s: %s\n", espressoButtonGpio, espressoButtonGpio.Function())
 	log.Printf("Lungo button GPIO %s: %s\n", lungoButtonGpio, lungoButtonGpio.Function())
 
-	return nespressoMachine{espressoButtonGpio: espressoButtonGpio, lungoButtonGpio: lungoButtonGpio, buttonPressLengthMs: 300}
+	return nespressoMachine{espressoButtonGpio: espressoButtonGpio, lungoButtonGpio: lungoButtonGpio, buttonPressLengthMs: cfg.ButtonPressDurationMs}
 }
 
 func (n nespressoMachine) PressEspressoButton() {

@@ -15,10 +15,18 @@ import (
 	"net/http"
 
 	"github.com/tfaber42/coffeepixie/src/coffee"
+	"gopkg.in/yaml.v2"
 	"periph.io/x/host/v3"
 )
 
+type Config struct {
+	NespressoMachine coffee.NespressoMachineConfig `yaml:"nespresso_machine"`
+	Timer            coffee.CoffeeTimerConfig      `yaml:"timer"`
+}
+
 func main() {
+
+	cfg := readConfig("config.yml")
 
 	// Load all the drivers:
 	if _, err := host.Init(); err != nil {
@@ -26,13 +34,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	pixie := coffee.NewNespressoMachine(27, 22)
+	pixie := coffee.NewNespressoMachine(cfg.NespressoMachine)
 	defer pixie.Disconnect()
 
-	coffeeTimer := coffee.NewCoffeeTimer(17, 4, 24, 23)
+	coffeeTimer := coffee.NewCoffeeTimer(cfg.Timer)
 	defer coffeeTimer.Disconnect()
-
-	//coffeeTimer.SetTriggerTime(22, 36)
 
 	coffeeTimer.SetTriggerFunc(func() {
 		pixie.PressEspressoButton()
@@ -59,10 +65,41 @@ func main() {
 	// After defining our server, we finally "listen and serve" on port 8080
 	// The second argument is the handler, which we will come to later on, but for now it is left as nil,
 	// and the handler defined above (in "HandleFunc") is used
-	err := http.ListenAndServe(":8081", nil)
+	err := http.ListenAndServe(":8080", nil)
 
 	fmt.Println(err)
 
+}
+
+func readConfig(fileName string) Config {
+	var cfg Config
+	cfgFile, err := os.Open(fileName)
+	if err != nil {
+		// set defaults and write file
+		cfg.NespressoMachine = coffee.NespressoMachineConfigDefaults
+		cfg.Timer = coffee.CoffeeTimerConfigDefaults
+
+		cfgFile, err = os.Create("config.yml")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer cfgFile.Close()
+
+		encoder := yaml.NewEncoder(cfgFile)
+		err = encoder.Encode(&cfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		defer cfgFile.Close()
+
+		decoder := yaml.NewDecoder(cfgFile)
+		err = decoder.Decode(&cfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	return cfg
 }
 
 // "handler" is our handler function. It has to follow the function signature of a ResponseWriter and Request type
