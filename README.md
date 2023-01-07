@@ -53,3 +53,4 @@ gh repo clone tfaber42/coffeepixie
 cd coffeepixie
 go run src/main.go
 ```
+9. Navigate to `http://<hostname>:8080` and set your coffee making time!

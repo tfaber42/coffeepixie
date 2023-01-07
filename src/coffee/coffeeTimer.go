@@ -6,122 +6,38 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"periph.io/x/conn/v3/gpio"
-	"periph.io/x/conn/v3/gpio/gpioreg"
 )
 
 type CoffeeTimerConfig struct {
-	ArmedLedPin          int    `yaml:"armed_led_pin"`
-	DisarmedLedPin       int    `yaml:"disarmed_led_pin"`
-	ArmButtonPin         int    `yaml:"arm_button_pin"`
-	CheckStatusButtonPin int    `yaml:"check_status_button_pin"`
-	TriggerTime          string `yaml:"trigger_time"`
+	TriggerTime string `yaml:"trigger_time"`
 }
 
 var CoffeeTimerConfigDefaults = CoffeeTimerConfig{
-	ArmedLedPin:          17,
-	DisarmedLedPin:       4,
-	ArmButtonPin:         24,
-	CheckStatusButtonPin: 23,
-	TriggerTime:          "8:30",
+	TriggerTime: "8:30",
 }
 
 type coffeeTimer struct {
-	armedLedGpio, disarmedLedGpio, armButtonGpio, checkStatusButtonGpio gpio.PinIO
-	showStatusLengthMs, buttonPressLengthMs                             int
-	isArmed                                                             bool
-	triggerHour, triggerMin                                             int
-	triggerFunc                                                         func()
-	cancellableTimer                                                    *time.Timer
+	raspi                               raspberrypi
+	showStatusLengthMs                  int
+	isArmed                             bool
+	triggerHour, triggerMin, triggerSec int
+	triggerFunc                         func()
+	cancellableTimer                    *time.Timer
 }
 
-func NewCoffeeTimer(cfg CoffeeTimerConfig) *coffeeTimer {
-
-	armedLedGpio := gpioreg.ByName(fmt.Sprint(cfg.ArmedLedPin))
-	disarmedLedGpio := gpioreg.ByName(fmt.Sprint(cfg.DisarmedLedPin))
-	armButtonGpio := gpioreg.ByName(fmt.Sprint(cfg.ArmButtonPin))
-	checkStatusButtonGpio := gpioreg.ByName(fmt.Sprint(cfg.CheckStatusButtonPin))
+func NewCoffeeTimer(cfg CoffeeTimerConfig, raspi raspberrypi) *coffeeTimer {
 
 	showStatusLengthMs := 2000
-	buttonPressLengthMs := 300
 
-	// Set it as input, with an internal pull down resistor:
-	if err := checkStatusButtonGpio.In(gpio.PullDown, gpio.RisingEdge); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := armButtonGpio.In(gpio.PullDown, gpio.RisingEdge); err != nil {
-		log.Fatal(err)
-	}
-
-	log.Printf("Check Status GPIO %s: %s\n", checkStatusButtonGpio, checkStatusButtonGpio.Function())
-	log.Printf("Arm Timer GPIO %s: %s\n", armButtonGpio, armButtonGpio.Function())
-	log.Printf("Armed LED GPIO %s: %s\n", armedLedGpio, armedLedGpio.Function())
-	log.Printf("Diarmed LED GPIO %s: %s\n", disarmedLedGpio, disarmedLedGpio.Function())
-
-	ct := coffeeTimer{armedLedGpio: armedLedGpio, disarmedLedGpio: disarmedLedGpio, armButtonGpio: armButtonGpio, checkStatusButtonGpio: checkStatusButtonGpio, showStatusLengthMs: showStatusLengthMs, buttonPressLengthMs: buttonPressLengthMs, isArmed: false}
+	ct := coffeeTimer{raspi: raspi, showStatusLengthMs: showStatusLengthMs, isArmed: false}
 
 	ct.SetTriggerTime(cfg.TriggerTime)
 	ct.SetTriggerFunc(func() {})
 
-	go func() {
-		// Wait for edges as detected by the hardware, and print the value read:
-		for {
-			commenceWaiting := time.Now()
-
-			// for some reason, the dge detection did not work unless we Read() the GPIO value
-			checkStatusButtonGpio.Read()
-			checkStatusButtonGpio.WaitForEdge(-1)
-			if time.Since(commenceWaiting) > time.Duration(buttonPressLengthMs)*time.Millisecond {
-				ct.showArmedStatus()
-			}
-
-			// for good measure, Read() again afterwards to be on the safe side..
-			checkStatusButtonGpio.Read()
-		}
-	}()
-
-	go func() {
-		// Wait for edges as detected by the hardware, and print the value read:
-		for {
-			commenceWaiting := time.Now()
-
-			armButtonGpio.Read()
-			armButtonGpio.WaitForEdge(-1)
-			if time.Since(commenceWaiting) > time.Duration(buttonPressLengthMs)*time.Millisecond {
-				ct.toggleArmedStatus()
-			}
-			armButtonGpio.Read()
-		}
-	}()
+	// TODO: this only makes sense as a default while there's no (web) interface to explicitly arm the timer
+	ct.arm()
 
 	return &ct
-}
-
-func (ct coffeeTimer) showArmedStatus() {
-
-	var statusGpio gpio.PinIO
-	if ct.isArmed {
-		statusGpio = ct.armedLedGpio
-		log.Printf("CoffeeTimer Status: ARMED for %d:%02d\n", ct.triggerHour, ct.triggerMin)
-	} else {
-		statusGpio = ct.disarmedLedGpio
-		log.Println("CoffeeTimer Status: disarmed")
-	}
-
-	//fmt.Println(statusGpio, "high")
-	if err := statusGpio.Out(gpio.High); err != nil {
-		log.Fatal(err)
-	}
-
-	time.Sleep(time.Duration(ct.buttonPressLengthMs) * time.Millisecond)
-
-	//fmt.Println(statusGpio, "low")
-	if err := statusGpio.Out(gpio.Low); err != nil {
-		//fmt.Println("error gpio low")
-		log.Fatal(err)
-	}
 }
 
 func (ct *coffeeTimer) arm() {
@@ -133,7 +49,7 @@ func (ct *coffeeTimer) arm() {
 
 	now := time.Now()
 
-	triggerTime := time.Date(now.Year(), now.Month(), now.Day(), ct.triggerHour, ct.triggerMin, 0, 0, now.Location())
+	triggerTime := time.Date(now.Year(), now.Month(), now.Day(), ct.triggerHour, ct.triggerMin, ct.triggerSec, 0, now.Location())
 	if triggerTime.Before(now) {
 		triggerTime = triggerTime.Add(24 * time.Hour)
 	}
@@ -155,7 +71,7 @@ func (ct *coffeeTimer) disarm() {
 
 }
 
-func (ct *coffeeTimer) toggleArmedStatus() {
+func (ct *coffeeTimer) ToggleArmedStatus() {
 
 	if ct.isArmed {
 		ct.disarm()
@@ -163,8 +79,12 @@ func (ct *coffeeTimer) toggleArmedStatus() {
 		ct.arm()
 	}
 
-	ct.showArmedStatus()
+	ct.ShowArmedStatus()
 
+}
+
+func (ct coffeeTimer) ShowArmedStatus() {
+	ct.raspi.ActivateArmedStatusLED(ct.isArmed, ct.showStatusLengthMs, fmt.Sprintf("%d:%02d", ct.triggerHour, ct.triggerMin))
 }
 
 func (ct coffeeTimer) IsArmed() bool {
@@ -177,30 +97,40 @@ func (ct *coffeeTimer) SetTriggerTime(timeStr string) {
 	var hour, min int
 	var err error
 	fields := strings.Split(timeStr, ":")
-	if len(fields) != 2 {
-		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm'\n", timeStr)
-		log.Printf("Leaving trigger time unchanged at %d:%02d\n", ct.triggerHour, ct.triggerMin)
+	if len(fields) < 2 || len(fields) > 3 {
+		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm[:ss]'\n", timeStr)
+		log.Printf("Leaving trigger time unchanged at %d:%02d:%02d\n", ct.triggerHour, ct.triggerMin, ct.triggerSec)
 		return
 	}
 
 	hour, err = strconv.Atoi(fields[0])
 	if err != nil {
-		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm'\n", timeStr)
-		log.Printf("Leaving trigger time unchanged at %d:%02d\n", ct.triggerHour, ct.triggerMin)
+		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm[:ss]'\n", timeStr)
+		log.Printf("Leaving trigger time unchanged at %d:%02d:%02d\n", ct.triggerHour, ct.triggerMin, ct.triggerSec)
 		return
 	}
 
 	min, err = strconv.Atoi(fields[1])
 	if err != nil {
-		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm'\n", timeStr)
-		log.Printf("Leaving trigger time unchanged at %d:%02d\n", ct.triggerHour, ct.triggerMin)
+		log.Printf("Unexpected trigger time format '%s', expected 'hh:mm[:ss]'\n", timeStr)
+		log.Printf("Leaving trigger time unchanged at %d:%02d:%02d\n", ct.triggerHour, ct.triggerMin, ct.triggerSec)
 		return
 	}
 
-	log.Printf("Setting trigger time to %d:%02d\n", hour, min)
+	sec := 0
+	if len(fields) == 3 {
+		sec, err = strconv.Atoi(fields[2])
+		if err != nil {
+			log.Printf("Unexpected trigger time format '%s', expected 'hh:mm:ss'\n", timeStr)
+			log.Printf("Leaving trigger time unchanged at %d:%02d:%02d\n", ct.triggerHour, ct.triggerMin, ct.triggerSec)
+			return
+		}
+	}
+
+	log.Printf("Setting trigger time to %d:%02d:%02d\n", hour, min, sec)
 	ct.triggerHour = hour
 	ct.triggerMin = min
-
+	ct.triggerSec = sec
 }
 
 func (ct *coffeeTimer) SetTriggerFunc(f func()) {
@@ -214,10 +144,4 @@ func (ct *coffeeTimer) SetTriggerFunc(f func()) {
 
 	ct.triggerFunc = funcWithDisarm
 
-}
-
-// sets both pins to High, as this is when the relay is turned off
-func (ct coffeeTimer) Disconnect() {
-	ct.armedLedGpio.Out(gpio.Low)
-	ct.disarmedLedGpio.Out(gpio.Low)
 }
