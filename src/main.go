@@ -28,6 +28,7 @@ type Config struct {
 
 func main() {
 
+	log.SetFlags(log.Flags() | log.Lmicroseconds)
 	log.SetOutput(&lumberjack.Logger{
 		Filename:   "coffeepixie.log",
 		MaxSize:    5, // megabytes
@@ -44,14 +45,21 @@ func main() {
 	pixie := coffee.NewNespressoMachine(cfg.NespressoMachine, raspi)
 
 	coffeeTimer := coffee.NewCoffeeTimer(cfg.Timer, raspi)
-	raspi.SetShowArmedStatusFunc(coffeeTimer.ShowArmedStatus)
-	raspi.SetToggleArmedStatusFunc(coffeeTimer.ToggleArmedStatus)
 
 	coffeeTimer.SetTriggerFunc(func() {
+		log.Println("BLAH")
 		pixie.PressEspressoButton()
 		time.Sleep(300 * time.Millisecond)
 		pixie.PressEspressoButton()
 	})
+
+	raspi.SetShowArmedStatusFunc(coffeeTimer.ShowArmedStatus)
+	raspi.SetToggleArmedStatusFunc(coffeeTimer.ToggleArmedStatus)
+
+	//testTriggerTime := time.Now().Add(2 * time.Second).Format("15:04:05")
+	//coffeeTimer.SetTriggerTime(testTriggerTime)
+
+	coffeeTimer.Arm()
 
 	coffeeTimer.ShowArmedStatus()
 

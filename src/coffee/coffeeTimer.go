@@ -31,20 +31,19 @@ func NewCoffeeTimer(cfg CoffeeTimerConfig, raspi raspberrypi) *coffeeTimer {
 
 	ct := coffeeTimer{raspi: raspi, showStatusLengthMs: showStatusLengthMs, isArmed: false}
 
-	ct.SetTriggerTime(cfg.TriggerTime)
 	ct.SetTriggerFunc(func() {})
-
-	// TODO: this only makes sense as a default while there's no (web) interface to explicitly arm the timer
-	ct.arm()
+	ct.SetTriggerTime(cfg.TriggerTime)
 
 	return &ct
 }
 
-func (ct *coffeeTimer) arm() {
+// Arm sets the timer for the currently configured Trigger Time, using the currently configure Trigger Func.
+// Changes ot the Trigger Time or Func are only active after re-ariming.
+func (ct *coffeeTimer) Arm() {
 
 	if ct.cancellableTimer != nil {
 		// a timer is already going - stop it and create a new one below
-		ct.disarm()
+		ct.Disarm()
 	}
 
 	now := time.Now()
@@ -59,7 +58,7 @@ func (ct *coffeeTimer) arm() {
 
 }
 
-func (ct *coffeeTimer) disarm() {
+func (ct *coffeeTimer) Disarm() {
 
 	if ct.cancellableTimer != nil {
 		// a timer is going - stop it
@@ -74,9 +73,9 @@ func (ct *coffeeTimer) disarm() {
 func (ct *coffeeTimer) ToggleArmedStatus() {
 
 	if ct.isArmed {
-		ct.disarm()
+		ct.Disarm()
 	} else {
-		ct.arm()
+		ct.Arm()
 	}
 
 	ct.ShowArmedStatus()
@@ -84,7 +83,7 @@ func (ct *coffeeTimer) ToggleArmedStatus() {
 }
 
 func (ct coffeeTimer) ShowArmedStatus() {
-	ct.raspi.ActivateArmedStatusLED(ct.isArmed, ct.showStatusLengthMs, fmt.Sprintf("%d:%02d", ct.triggerHour, ct.triggerMin))
+	ct.raspi.ActivateArmedStatusLED(ct.isArmed, ct.showStatusLengthMs, fmt.Sprintf("%d:%02d:%02d", ct.triggerHour, ct.triggerMin, ct.triggerSec))
 }
 
 func (ct coffeeTimer) IsArmed() bool {
@@ -139,7 +138,8 @@ func (ct *coffeeTimer) SetTriggerFunc(f func()) {
 	funcWithDisarm := func() {
 		log.Println("TRIGGERING!")
 		f()
-		ct.disarm()
+		ct.Disarm()
+		log.Println("Disarmed")
 	}
 
 	ct.triggerFunc = funcWithDisarm

@@ -15,11 +15,11 @@ func TestArmedTrigger(t *testing.T) {
 	ct.SetTriggerFunc(func() { triggerFuncChannel <- true })
 
 	// set up trigger to be as soon as possible (currently finest granularity is minute)
-	testTriggerTime := time.Now().Add(1 * time.Second).Format("3:04:05")
+	testTriggerTime := time.Now().Add(1 * time.Second).Format("15:04:05")
 	ct.SetTriggerTime(testTriggerTime)
 
 	// arm the trigger
-	ct.arm()
+	ct.Arm()
 
 	// set up monitoring timer that sends "false" to the channel after a timeout
 	timeout := time.Now().Add(2 * time.Second)
@@ -44,11 +44,11 @@ func TestDisarmedTrigger(t *testing.T) {
 	ct.SetTriggerFunc(func() { triggerFuncChannel <- true })
 
 	// set up trigger to be as soon as possible (currently finest granularity is minute)
-	testTriggerTime := time.Now().Add(1 * time.Second).Format("3:04:05")
+	testTriggerTime := time.Now().Add(1 * time.Second).Format("15:04:05")
 	ct.SetTriggerTime(testTriggerTime)
 
 	// arm the trigger
-	ct.disarm()
+	ct.Disarm()
 
 	// set up monitoring timer that sends "false" to the channel after a timeout
 	timeout := time.Now().Add(2 * time.Second)
@@ -58,7 +58,7 @@ func TestDisarmedTrigger(t *testing.T) {
 	coffeeTimerHasTriggered := <-triggerFuncChannel
 
 	if coffeeTimerHasTriggered {
-		t.Fatal("coffeeTimer has not triggered though it was disarmed")
+		t.Fatal("coffeeTimer has triggered though it was disarmed")
 	}
 
 }
