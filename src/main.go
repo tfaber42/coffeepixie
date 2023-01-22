@@ -47,7 +47,6 @@ func main() {
 	coffeeTimer := coffee.NewCoffeeTimer(cfg.Timer, raspi)
 
 	coffeeTimer.SetTriggerFunc(func() {
-		log.Println("BLAH")
 		pixie.PressEspressoButton()
 		time.Sleep(300 * time.Millisecond)
 		pixie.PressEspressoButton()
@@ -55,9 +54,6 @@ func main() {
 
 	raspi.SetShowArmedStatusFunc(coffeeTimer.ShowArmedStatus)
 	raspi.SetToggleArmedStatusFunc(coffeeTimer.ToggleArmedStatus)
-
-	//testTriggerTime := time.Now().Add(2 * time.Second).Format("15:04:05")
-	//coffeeTimer.SetTriggerTime(testTriggerTime)
 
 	coffeeTimer.Arm()
 
