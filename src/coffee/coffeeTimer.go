@@ -16,7 +16,7 @@ var CoffeeTimerConfigDefaults = CoffeeTimerConfig{
 	TriggerTime: "8:30",
 }
 
-type coffeeTimer struct {
+type CoffeeTimer struct {
 	raspi                               raspberrypi
 	showStatusLengthMs                  int
 	isArmed                             bool
@@ -25,11 +25,11 @@ type coffeeTimer struct {
 	cancellableTimer                    *time.Timer
 }
 
-func NewCoffeeTimer(cfg CoffeeTimerConfig, raspi raspberrypi) *coffeeTimer {
+func NewCoffeeTimer(cfg CoffeeTimerConfig, raspi raspberrypi) *CoffeeTimer {
 
 	showStatusLengthMs := 2000
 
-	ct := coffeeTimer{raspi: raspi, showStatusLengthMs: showStatusLengthMs, isArmed: false}
+	ct := CoffeeTimer{raspi: raspi, showStatusLengthMs: showStatusLengthMs, isArmed: false}
 
 	ct.SetTriggerFunc(func() {})
 	ct.SetTriggerTime(cfg.TriggerTime)
@@ -39,7 +39,7 @@ func NewCoffeeTimer(cfg CoffeeTimerConfig, raspi raspberrypi) *coffeeTimer {
 
 // Arm sets the timer for the currently configured Trigger Time, using the currently configure Trigger Func.
 // Changes ot the Trigger Time or Func are only active after re-ariming.
-func (ct *coffeeTimer) Arm() {
+func (ct *CoffeeTimer) Arm() {
 
 	if ct.cancellableTimer != nil {
 		// a timer is already going - stop it and create a new one below
@@ -58,7 +58,7 @@ func (ct *coffeeTimer) Arm() {
 
 }
 
-func (ct *coffeeTimer) Disarm() {
+func (ct *CoffeeTimer) Disarm() {
 
 	if ct.cancellableTimer != nil {
 		// a timer is going - stop it
@@ -70,7 +70,7 @@ func (ct *coffeeTimer) Disarm() {
 
 }
 
-func (ct *coffeeTimer) ToggleArmedStatus() {
+func (ct *CoffeeTimer) ToggleArmedStatus() {
 
 	if ct.isArmed {
 		ct.Disarm()
@@ -82,16 +82,20 @@ func (ct *coffeeTimer) ToggleArmedStatus() {
 
 }
 
-func (ct coffeeTimer) ShowArmedStatus() {
+func (ct CoffeeTimer) ShowArmedStatus() {
 	ct.raspi.ActivateArmedStatusLED(ct.isArmed, ct.showStatusLengthMs, fmt.Sprintf("%d:%02d:%02d", ct.triggerHour, ct.triggerMin, ct.triggerSec))
 }
 
-func (ct coffeeTimer) IsArmed() bool {
+func (ct CoffeeTimer) IsArmed() bool {
 	return ct.isArmed
 }
 
+func (ct *CoffeeTimer) GetTriggerTime() string {
+	return fmt.Sprintf("%02d:%02d", ct.triggerHour, ct.triggerMin)
+}
+
 // sets the trigger for the next occurrence of HH:MM, usually tomorrow morning - DAYLIGHT SAVINGS BEHAVIOUR UNKNOWN!
-func (ct *coffeeTimer) SetTriggerTime(timeStr string) {
+func (ct *CoffeeTimer) SetTriggerTime(timeStr string) {
 
 	var hour, min int
 	var err error
@@ -139,7 +143,7 @@ func (ct *coffeeTimer) SetTriggerTime(timeStr string) {
 
 }
 
-func (ct *coffeeTimer) SetTriggerFunc(f func()) {
+func (ct *CoffeeTimer) SetTriggerFunc(f func()) {
 
 	// ensure the timer gets disarmed after it has triggered the func
 	funcWithDisarm := func() {
