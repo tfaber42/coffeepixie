@@ -55,8 +55,6 @@ func main() {
 	raspi.SetShowArmedStatusFunc(coffeeTimer.ShowArmedStatus)
 	raspi.SetToggleArmedStatusFunc(coffeeTimer.ToggleArmedStatus)
 
-	coffeeTimer.Arm()
-
 	coffeeTimer.ShowArmedStatus()
 
 	// Clean up on ctrl-c and turn lights out

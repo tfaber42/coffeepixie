@@ -130,6 +130,13 @@ func (ct *coffeeTimer) SetTriggerTime(timeStr string) {
 	ct.triggerHour = hour
 	ct.triggerMin = min
 	ct.triggerSec = sec
+
+	// re-arm with new trigger time if currently armed
+	if ct.isArmed {
+		ct.Disarm()
+		ct.Arm()
+	}
+
 }
 
 func (ct *coffeeTimer) SetTriggerFunc(f func()) {
@@ -143,5 +150,11 @@ func (ct *coffeeTimer) SetTriggerFunc(f func()) {
 	}
 
 	ct.triggerFunc = funcWithDisarm
+
+	// re-arm with new trigger func if currently armed
+	if ct.isArmed {
+		ct.Disarm()
+		ct.Arm()
+	}
 
 }
