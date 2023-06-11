@@ -9,4 +9,4 @@ raspberry_pi:
 nespresso_machine:
   button_press_duration_ms: 300
 timer:
-  trigger_time: "7:00"
+  trigger_time: "8:30"

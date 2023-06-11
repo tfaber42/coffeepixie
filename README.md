@@ -1,5 +1,7 @@
 # coffeepixie
 
+## Getting started
+
 1. Download Raspberry Pi Imager: https://www.raspberrypi.com/software/
 2. Write Raspberry Pi OS *LITE* 32 bit image to SD card (set hostname, password, enable SSH, WLAN and locale before writing image)
 3. Connect via SSH (using hostname set before writing image):
@@ -54,3 +56,28 @@ cd coffeepixie
 go run src/main.go
 ```
 9. Navigate to `http://<hostname>:8080` and set your coffee making time!
+
+## Start coffee pixie automatically during Raspi bootup
+1. Compile go program
+```
+~/go/github.com/tfaber42/coffeepixie/src $ go build -o ../coffeepixie
+```
+1. Create script to start coffee pixie, call it `start_coffeepixie` and place it in the `pi` user's home dir:
+```
+#/bin/bash
+# CD into correct working dir so coffeepixie webserver can find html files
+cd /home/pi/go/github.com/tfaber42/coffeepixie
+nohup coffeepixie &
+```
+2. Make the script executable
+```
+chmod 777 start_coffeepixie
+```
+3. Start at boot time using cron: 
+```
+crontab -e
+```
+and append this line at the end
+```
+@reboot /home/pi/start_coffeepixie
+```
